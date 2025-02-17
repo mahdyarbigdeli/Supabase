@@ -1,0 +1,109 @@
+#minimal project
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    container_name: supabase-db
+    environment:
+      POSTGRES_DB: supabase
+      POSTGRES_USER: supabase_admin
+      POSTGRES_PASSWORD: supersecretpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - supabase_net
+    ports:
+      - "5432:5432"
+
+  realtime:
+    image: supabase/realtime
+    restart: always
+    container_name: supabase-realtime-service
+    environment:
+      RLIMIT_NOFILE: "1048576"
+      DB_HOST: postgres
+      DB_NAME: supabase
+      DB_USER: supabase_admin
+      DB_PASSWORD: supersecretpassword
+      JWT_SECRET: supabase_jwt_secret
+      PGRST_JWT_SECRET: supabase_jwt_secret
+      SECRET_KEY_BASE: "p+X9kld9WfLpMWc+BdXHP0Y9kpk99AqZpjZ9W1M+loU="
+      APP_NAME: "supabase-realtime"
+      PORT: 4000
+      DB_URI: postgres://supabase_admin:supersecretpassword@postgres:5432/supabase
+      DB_SSL: "false"
+    depends_on:
+      - postgres
+    networks:
+      - supabase_net
+    ports:
+      - "4000:4000"
+
+  postgrest:
+    image: postgrest/postgrest
+    restart: always
+    container_name: supabase-postgrest
+    environment:
+      PGRST_DB_URI: postgres://supabase_admin:supersecretpassword@postgres:5432/supabase
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_AUTH_ROLE: authenticated
+      PGRST_JWT_SECRET: supabase_jwt_secret
+    depends_on:
+      - postgres
+    networks:
+      - supabase_net
+    ports:
+      - "3000:3000"
+
+  storage:
+    image: supabase/storage-api
+    restart: always
+    container_name: supabase-storage
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: supersecretpassword
+      DB_NAME: supabase
+      SITE_URL: "http://localhost:8000"
+      JWT_SECRET: supabase_jwt_secret
+      PGRST_JWT_SECRET: supabase_jwt_secret
+      DATABASE_URL: postgres://supabase_admin:supersecretpassword@postgres:5432/supabase
+      FILE_STORAGE_BACKEND_PATH: "/var/lib/supabase/storage"
+    depends_on:
+      - postgres
+    networks:
+      - supabase_net
+    ports:
+      - "5000:5000"
+
+  studio:
+    image: supabase/studio:latest
+    restart: always
+    container_name: supabase-studio
+    environment:
+      SUPABASE_URL: "http://supabase-postgrest:3000" 
+      SUPABASE_ANON_KEY: "your_anon_key_here"
+      SUPABASE_SERVICE_ROLE_KEY: "your_service_role_key_here"
+      SUPABASE_DB_URL: "postgres://supabase_admin:supersecretpassword@supabase-db:5432/supabase"
+      STUDIO_PG_META_URL: "http://supabase-postgrest:3000"  
+      LOG_LEVEL: "debug"
+    depends_on:
+      - postgrest
+      - postgres
+    networks:
+      - supabase_net
+    ports:
+      - "8000:3000"
+
+
+networks:
+  supabase_net:
+    driver: bridge
+    
+volumes:
+  postgres_data:
+  storage_data:
